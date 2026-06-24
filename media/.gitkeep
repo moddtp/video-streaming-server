@@ -1,0 +1,2 @@
+# Source MP4 files live here. They are READ-ONLY at runtime and never committed.
+# Run `npm run make-media` to generate sample test videos into this directory.

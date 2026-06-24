@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VOD Watermark — Test Player</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #0f1115; color: #e6e6e6;
+        display: flex; flex-direction: column; min-height: 100vh;
+      }
+      header { padding: 14px 20px; background: #171a21; border-bottom: 1px solid #262b36; }
+      header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+      header p { margin: 4px 0 0; color: #8b94a3; font-size: 13px; }
+      main { display: grid; grid-template-columns: 320px 1fr; gap: 20px; padding: 20px; flex: 1; }
+      @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+      .card { background: #171a21; border: 1px solid #262b36; border-radius: 10px; padding: 16px; }
+      .card h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: #8b94a3; }
+      label { display: block; font-size: 12px; color: #8b94a3; margin: 8px 0 4px; }
+      input {
+        width: 100%; padding: 9px 10px; border-radius: 7px; border: 1px solid #2c3340;
+        background: #0f1115; color: #e6e6e6; font-size: 14px;
+      }
+      button {
+        margin-top: 12px; padding: 9px 14px; border: 0; border-radius: 7px; cursor: pointer;
+        background: #3b82f6; color: #fff; font-weight: 600; font-size: 14px;
+      }
+      button.secondary { background: #2c3340; }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      ul.videos { list-style: none; margin: 0; padding: 0; }
+      ul.videos li {
+        display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        padding: 10px; border: 1px solid #262b36; border-radius: 8px; margin-bottom: 8px;
+      }
+      ul.videos li .meta { font-size: 12px; color: #8b94a3; }
+      video { width: 100%; background: #000; border-radius: 10px; aspect-ratio: 16/9; }
+      .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #22272f; font-size: 12px; color: #b9c2d0; }
+      .status { font-size: 13px; color: #8b94a3; margin-top: 10px; min-height: 18px; }
+      .wm { font-family: ui-monospace, monospace; color: #9fe6a0; }
+      .err { color: #ef6d6d; }
+      .hint { font-size: 12px; color: #6b7484; margin-top: 8px; }
+      code { background: #0f1115; padding: 1px 5px; border-radius: 5px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Video-on-Demand · On-the-fly Watermark — Test Player</h1>
+      <p>Log in, pick a video, and watch the per-user watermark (<span class="wm">email | Category</span>) move every few seconds, going vertical near the side borders.</p>
+    </header>
+    <main>
+      <section>
+        <div class="card" id="loginCard">
+          <h2>1 · Sign in</h2>
+          <label for="email">Email</label>
+          <input id="email" autocomplete="username" />
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" />
+          <button id="loginBtn">Sign in</button>
+          <div class="status" id="loginStatus"></div>
+          <div class="hint" id="demoHint"></div>
+        </div>
+        <div class="card" id="catalogCard" style="margin-top:16px; display:none">
+          <h2>2 · Choose a video</h2>
+          <ul class="videos" id="videoList"></ul>
+        </div>
+      </section>
+      <section class="card">
+        <h2>3 · Player</h2>
+        <video id="video" controls playsinline></video>
+        <div class="status" id="playStatus"></div>
+        <div class="hint">
+          The player loads <code>playlistUrl?t=&lt;sessionToken&gt;</code>; the server rewrites each
+          segment URI to carry the same token, so segment requests stay authorized.
+        </div>
+      </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script src="./player.js"></script>
+  </body>
+</html>
