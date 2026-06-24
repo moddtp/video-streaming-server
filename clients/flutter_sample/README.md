@@ -49,6 +49,6 @@ Set the **Server URL** on the login screen:
 | iOS simulator         | `http://localhost:3000`   |
 | Physical device       | `http://<your-LAN-IP>:3000` |
 
-Sign in with a demo login (e.g. `phirapong@icbsolution.com` / `password123`),
+Sign in with a demo login (e.g. `vdowatermark@vdowatermark.th` / `vdowatermark9630`),
 pick a video, and watch the watermark move. See `../../docs/CLIENT-FLUTTER.md`
 for the integration details and `better_player` / `media_kit` alternatives.

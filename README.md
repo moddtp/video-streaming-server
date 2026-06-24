@@ -6,7 +6,7 @@ moving watermark** into the video **on the fly** — without ever modifying the
 source files.
 
 The watermark renders `user@email.com | Category` (e.g.
-`phirapong@icbsolution.com | Drama`) so a leaked screen-recording traces back to
+`vdowatermark@vdowatermark.th | Drama`) so a leaked screen-recording traces back to
 one account. Because the email is rendered into the pixels, it survives
 screen-recording and re-streaming.
 
@@ -20,6 +20,9 @@ screen-recording and re-streaming.
   - white text, ~3.5% of frame height, ~65% opacity (all configurable);
   - hugs a random border with a gap, **jumps to a new random spot every 3–12s**;
   - renders **vertically (rotated 90°/270°) on the left/right borders**, horizontally on top/bottom.
+- **Optional static logo watermark** (also burned in): a corner-placed PNG/JPEG
+  (GitHub mark by default) with configurable size (≤ 1/8 of the frame), border gap,
+  and opacity — and the moving text automatically steers clear of it.
 - **Sources are never modified** — only ever read (verified by the smoke test).
 - **Auth + session tokens** guard the playlist and every segment.
 - **Bundled FFmpeg** (`ffmpeg-static`) — no system install required; a startup
@@ -50,10 +53,10 @@ the side borders). Verify headlessly with:
 ```bash
 npm run smoke          # end-to-end: login → play → HLS → auth → source integrity
 npm test               # unit tests for the watermark schedule/geometry/ASS
-npm run wm:preview vid_mv_001 phirapong@icbsolution.com   # render still frames to data/preview/
+npm run wm:preview vid_mv_001 vdowatermark@vdowatermark.th   # render still frames to data/preview/
 ```
 
-Demo logins: `phirapong@icbsolution.com` / `password123` · `demo@example.com` / `demo1234`.
+Demo logins: `vdowatermark@vdowatermark.th` / `vdowatermark9630` · `demo@example.com` / `demo1234`.
 
 ## API
 
@@ -83,6 +86,9 @@ map to a fraction of the frame):
 | `WM_GAP_PCT`                | `0.04`   | Border gap as a fraction of the dimension (~1.5–2.5 cm) |
 | `WM_OPACITY`                | `0.65`   | Text opacity (0–1; ~50–75%)                        |
 | `WM_MIN_INTERVAL_SEC` / `_MAX_` | `3`/`12` | Random reposition period bounds                |
+| `LOGO_POSITION`             | `bottom-right` | `disabled` or a corner (`top-left`…`bottom-right`) |
+| `LOGO_FILE`                 | GitHub mark | PNG/JPEG logo to burn in                        |
+| `LOGO_SIZE_PCT` / `_GAP_X_PCT` / `_GAP_Y_PCT` / `_OPACITY` | `0.10`/`0.03`/`0.03`/`0.85` | Logo size (≤1/8), gaps, opacity |
 | `MAX_CONCURRENT_TRANSCODES` | cores    | Concurrent burn-in jobs before `503`               |
 | `CATALOG_STORE`             | `sqlite` | `sqlite` (DBMS table) or `json`                    |
 

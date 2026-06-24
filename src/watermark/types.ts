@@ -1,6 +1,14 @@
 /** Which border the watermark hugs during one interval. */
 export type Border = 'top' | 'bottom' | 'left' | 'right';
 
+/** A pixel rectangle (e.g. the static logo's box, used as a no-go zone for the text). */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /** One "show the watermark here, from startSec to endSec" instruction. */
 export interface WatermarkInterval {
   startSec: number;

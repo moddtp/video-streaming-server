@@ -9,6 +9,16 @@ export const ASS_NAME = 'session.ass';
 /** A served file is only ever the playlist or a numbered segment. */
 export const STREAM_FILE_RE = /^(index\.m3u8|seg_\d{5}\.ts)$/;
 
+/** A resolved static logo overlay, in video pixels. */
+export interface LogoOverlay {
+  path: string;
+  sw: number;
+  sh: number;
+  x: number;
+  y: number;
+  opacity: number;
+}
+
 export interface HlsBuildOptions {
   inputPath: string;
   segmentSeconds: number;
@@ -20,6 +30,8 @@ export interface HlsBuildOptions {
   assPath: string | null;
   /** Absolute fonts directory for libass (used only when assPath is set). */
   fontsDir: string;
+  /** Static logo overlay (pixel-resolved), or null for none. */
+  logo: LogoOverlay | null;
 }
 
 /**
@@ -41,11 +53,26 @@ export function escapeFilterValue(v: string): string {
  */
 export function buildHlsArgs(opts: HlsBuildOptions): string[] {
   const args = ['-hide_banner', '-loglevel', 'warning', '-nostdin', '-y', '-i', opts.inputPath];
+  if (opts.logo) args.push('-i', opts.logo.path);
 
-  if (opts.assPath) {
-    // ASS file is referenced by its relative name (cwd = session dir); only the
-    // absolute fontsdir needs escaping.
-    args.push('-vf', `subtitles=${ASS_NAME}:fontsdir=${escapeFilterValue(opts.fontsDir)}`);
+  // The moving text is burned via the libass `subtitles` filter (relative ASS
+  // name; cwd = session dir). Only the absolute fontsdir needs escaping.
+  const subs = opts.assPath ? `subtitles=${ASS_NAME}:fontsdir=${escapeFilterValue(opts.fontsDir)}` : null;
+
+  if (opts.logo) {
+    // [1:v] = the logo: apply opacity, then overlay it at a fixed corner, then
+    // (optionally) burn the text on top. A single still fed to `overlay` persists
+    // for the whole clip — do NOT use `-loop 1` (that makes an infinite input and
+    // the event playlist would never terminate).
+    const { sw, sh, x, y, opacity } = opts.logo;
+    const lg = `[1:v]format=rgba,scale=${sw}:${sh},colorchannelmixer=aa=${opacity.toFixed(3)}[lg]`;
+    const fc = subs
+      ? `${lg};[0:v][lg]overlay=${x}:${y}[bg];[bg]${subs}[out]`
+      : `${lg};[0:v][lg]overlay=${x}:${y}[out]`;
+    // -map "[out]" disables default stream selection, so map audio explicitly.
+    args.push('-filter_complex', fc, '-map', '[out]', '-map', '0:a?');
+  } else if (subs) {
+    args.push('-vf', subs);
   }
 
   // Burning pixels requires a video re-encode (cannot -c:v copy). Force keyframes

@@ -5,10 +5,11 @@ import {
   lineHeight,
   makeRng,
   opacityToAssAlpha,
+  pickAlong,
   randFloat,
-  randIntInRange,
+  rangesOverlap,
 } from './geometry';
-import type { Border, WatermarkInterval, WatermarkPlan } from './types';
+import type { Border, Rect, WatermarkInterval, WatermarkPlan } from './types';
 
 export interface ScheduleConfig {
   textHeightPct: number;
@@ -28,6 +29,8 @@ export interface ScheduleParams {
   config: ScheduleConfig;
   /** Optional fixed seed for reproducibility (tests); otherwise random per session. */
   seed?: number;
+  /** Optional no-go rectangle (the static logo) the moving text must not overlap. */
+  exclusion?: Rect | null;
 }
 
 const BORDERS: Border[] = ['top', 'bottom', 'left', 'right'];
@@ -52,6 +55,8 @@ export function generateSchedule(p: ScheduleParams): WatermarkPlan {
   const gapY = gapPx(H, c.gapPct);
   const lineH = lineHeight(fontPx);
   const textW = estimateTextWidth(text, fontPx);
+  const exclusion = p.exclusion ?? null;
+  const margin = Math.round(0.01 * Math.max(W, H));
 
   const intervals: WatermarkInterval[] = [];
   let t = 0;
@@ -78,6 +83,23 @@ export function generateSchedule(p: ScheduleParams): WatermarkPlan {
     const yLo = gapY + halfH;
     const yHi = H - gapY - halfH;
 
+    // If a logo occupies this border's strip, exclude its projection from the
+    // along-border random axis so the moving text can't land on the logo.
+    let band: [number, number] | null = null;
+    if (exclusion) {
+      if (horizontal) {
+        const stripLo = border === 'top' ? gapY : H - gapY - lineH;
+        if (rangesOverlap(stripLo, stripLo + lineH, exclusion.y, exclusion.y + exclusion.h)) {
+          band = [exclusion.x - halfW - margin, exclusion.x + exclusion.w + halfW + margin];
+        }
+      } else {
+        const stripLo = border === 'left' ? gapX : W - gapX - lineH;
+        if (rangesOverlap(stripLo, stripLo + lineH, exclusion.x, exclusion.x + exclusion.w)) {
+          band = [exclusion.y - halfH - margin, exclusion.y + exclusion.h + halfH + margin];
+        }
+      }
+    }
+
     let x: number;
     let y: number;
     let rotation: 0 | 90 | 270 = 0;
@@ -86,22 +108,22 @@ export function generateSchedule(p: ScheduleParams): WatermarkPlan {
     switch (border) {
       case 'top':
         y = Math.round(gapY + halfH);
-        x = randIntInRange(rng, xLo, xHi, W / 2);
+        x = pickAlong(rng, xLo, xHi, W / 2, band);
         break;
       case 'bottom':
         y = Math.round(H - gapY - halfH);
-        x = randIntInRange(rng, xLo, xHi, W / 2);
+        x = pickAlong(rng, xLo, xHi, W / 2, band);
         break;
       case 'left':
         x = Math.round(gapX + halfW);
-        y = randIntInRange(rng, yLo, yHi, H / 2);
+        y = pickAlong(rng, yLo, yHi, H / 2, band);
         rotation = 90;
         vertical = true;
         break;
       case 'right':
       default:
         x = Math.round(W - gapX - halfW);
-        y = randIntInRange(rng, yLo, yHi, H / 2);
+        y = pickAlong(rng, yLo, yHi, H / 2, band);
         rotation = 270;
         vertical = true;
         break;
