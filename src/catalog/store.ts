@@ -1,0 +1,69 @@
+import path from 'node:path';
+import { config } from '../config';
+import { logger } from '../logger';
+
+export interface VideoMeta {
+  id: string;
+  title: string;
+  category: string;
+  /** Filename relative to MEDIA_DIR, or an absolute path. Never exposed to clients. */
+  sourcePath: string;
+  durationSec: number;
+  width: number | null;
+  height: number | null;
+  createdAt?: string;
+}
+
+/** Client-facing projection — deliberately omits sourcePath. */
+export interface PublicVideo {
+  id: string;
+  title: string;
+  category: string;
+  durationSec: number;
+  width: number | null;
+  height: number | null;
+}
+
+export function toPublic(v: VideoMeta): PublicVideo {
+  return {
+    id: v.id,
+    title: v.title,
+    category: v.category,
+    durationSec: v.durationSec,
+    width: v.width,
+    height: v.height,
+  };
+}
+
+/** Resolve a catalog sourcePath to an absolute file path under MEDIA_DIR. */
+export function resolveSourcePath(sourcePath: string): string {
+  return path.isAbsolute(sourcePath) ? sourcePath : path.join(config.mediaDir, sourcePath);
+}
+
+export interface CatalogStore {
+  listVideos(): Promise<VideoMeta[]>;
+  getVideo(id: string): Promise<VideoMeta | null>;
+  upsertVideo(video: VideoMeta): Promise<void>;
+  close(): Promise<void>;
+}
+
+/**
+ * Build the configured catalog store. Defaults to SQLite ("DBMS table"); if
+ * better-sqlite3 can't be loaded (e.g. native build unavailable), transparently
+ * falls back to the JSON-file store so the server still runs.
+ */
+export async function createCatalogStore(): Promise<CatalogStore> {
+  if (config.catalogStore === 'sqlite') {
+    try {
+      const { SqliteCatalogStore } = await import('./sqlite');
+      return new SqliteCatalogStore(config.catalogDbPath);
+    } catch (err) {
+      logger.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'SQLite catalog store unavailable; falling back to JSON file store',
+      );
+    }
+  }
+  const { JsonCatalogStore } = await import('./json');
+  return new JsonCatalogStore(config.catalogJsonPath);
+}

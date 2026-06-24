@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+
+# Runtime data (catalog DB, per-session HLS output, watermark previews) — all generated
+data/
+
+# Source media (never commit; sources are user-provided and may be large/copyrighted)
+media/*
+!media/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Mobile client build artifacts
+clients/flutter_sample/.dart_tool/
+clients/flutter_sample/build/
+clients/flutter_sample/.flutter-plugins*
+clients/react_native_sample/node_modules/
+clients/react_native_sample/android/build/
+clients/react_native_sample/ios/Pods/

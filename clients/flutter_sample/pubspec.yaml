@@ -1,0 +1,21 @@
+name: vod_sample
+description: Sample Flutter client for the VOD on-the-fly watermark streaming server.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Plays HLS via the platform players (ExoPlayer/Media3 on Android, AVPlayer on iOS).
+  video_player: ^2.9.2
+  http: ^1.2.2
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
