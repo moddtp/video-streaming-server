@@ -12,7 +12,7 @@ export interface User {
  * The email here becomes the first field of the burned-in watermark.
  */
 const DEMO_CREDENTIALS = [
-  { id: 'u_phirapong', email: 'phirapong@icbsolution.com', password: 'password123' },
+  { id: 'u_vdowatermark', email: 'vdowatermark@vdowatermark.th', password: 'vdowatermark9630' },
   { id: 'u_demo', email: 'demo@example.com', password: 'demo1234' },
 ];
 

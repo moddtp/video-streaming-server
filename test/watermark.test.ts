@@ -52,7 +52,7 @@ describe('generateSchedule', () => {
   const W = 1280;
   const H = 720;
   const DURATION = 30;
-  const TEXT = 'phirapong@icbsolution.com | Drama';
+  const TEXT = 'vdowatermark@vdowatermark.th | Drama';
   const plan = generateSchedule({ durationSec: DURATION, width: W, height: H, text: TEXT, config: CONFIG, seed: 42 });
 
   it('tiles the entire duration contiguously starting at 0', () => {
@@ -138,11 +138,11 @@ describe('renderAss', () => {
     durationSec: 20,
     width: 1920,
     height: 1080,
-    text: 'phirapong@icbsolution.com | Documentary',
+    text: 'vdowatermark@vdowatermark.th | Documentary',
     config: CONFIG,
     seed: 3,
   });
-  const ass = renderAss(plan, 'phirapong@icbsolution.com | Documentary');
+  const ass = renderAss(plan, 'vdowatermark@vdowatermark.th | Documentary');
 
   it('emits a valid ASS header at the video resolution', () => {
     expect(ass).toContain('[Script Info]');
@@ -167,7 +167,7 @@ describe('renderAss', () => {
       expect(line).toContain(`\\pos(${iv.x},${iv.y})`);
       if (iv.rotation === 0) expect(line).not.toContain('\\frz');
       else expect(line).toContain(`\\frz${iv.rotation}`);
-      expect(line).toContain('phirapong@icbsolution.com | Documentary');
+      expect(line).toContain('vdowatermark@vdowatermark.th | Documentary');
     });
   });
 });

@@ -69,6 +69,16 @@ const EnvSchema = z.object({
   WM_MAX_INTERVAL_SEC: num(12),
   WM_FONT_NAME: z.string().default('DejaVu Sans'),
   WM_FONT_FILE: z.string().default('DejaVuSans.ttf'),
+
+  // Static logo watermark (burned in alongside the moving text).
+  LOGO_POSITION: z
+    .enum(['disabled', 'top-left', 'top-right', 'bottom-left', 'bottom-right'])
+    .default('bottom-right'),
+  LOGO_FILE: z.string().default('assets/logos/github.png'),
+  LOGO_SIZE_PCT: num(0.1),
+  LOGO_GAP_X_PCT: num(0.03),
+  LOGO_GAP_Y_PCT: num(0.03),
+  LOGO_OPACITY: num(0.85),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -82,6 +92,7 @@ const env = parsed.data;
 
 const root = process.cwd();
 const abs = (p: string) => (path.isAbsolute(p) ? p : path.resolve(root, p));
+const clampNum = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 export const config = {
   root,
@@ -118,11 +129,23 @@ export const config = {
   watermark: {
     textHeightPct: env.WM_TEXT_HEIGHT_PCT,
     gapPct: env.WM_GAP_PCT,
-    opacity: Math.min(1, Math.max(0, env.WM_OPACITY)),
+    opacity: clampNum(env.WM_OPACITY, 0, 1),
     minIntervalSec: env.WM_MIN_INTERVAL_SEC,
     maxIntervalSec: env.WM_MAX_INTERVAL_SEC,
     fontName: env.WM_FONT_NAME,
     fontFile: env.WM_FONT_FILE,
+  },
+
+  logo: {
+    // 'disabled' or one of the four corners.
+    position: env.LOGO_POSITION,
+    file: abs(env.LOGO_FILE),
+    // Larger side as a fraction of the constraining (smaller) video dimension; ≤ 1/8.
+    sizePct: clampNum(env.LOGO_SIZE_PCT, 0, 0.125),
+    // Gaps from the two nearest borders, as fractions of width/height (0..10%).
+    gapXPct: clampNum(env.LOGO_GAP_X_PCT, 0, 0.1),
+    gapYPct: clampNum(env.LOGO_GAP_Y_PCT, 0, 0.1),
+    opacity: clampNum(env.LOGO_OPACITY, 0, 1),
   },
 } as const;
 

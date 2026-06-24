@@ -21,8 +21,8 @@ export default function App(): React.JSX.Element {
   const [api] = useState(() => new Api(DEFAULT_BASE_URL));
   const [screen, setScreen] = useState<Screen>('login');
   const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [email, setEmail] = useState('phirapong@icbsolution.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('vdowatermark@vdowatermark.th');
+  const [password, setPassword] = useState('vdowatermark9630');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);

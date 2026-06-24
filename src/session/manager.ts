@@ -1,16 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../config';
 import { logger } from '../logger';
 import { resolveSourcePath, type VideoMeta } from '../catalog/store';
 import { probeVideo } from '../ffmpeg/probe';
-import { buildHlsArgs, ASS_NAME } from '../ffmpeg/hls';
+import { buildHlsArgs, ASS_NAME, type LogoOverlay } from '../ffmpeg/hls';
 import { HlsRunner } from '../ffmpeg/runner';
 import { generateSchedule } from '../watermark/schedule';
 import { renderAss } from '../watermark/ass';
+import { computeLogoBox } from '../watermark/geometry';
 import { Semaphore } from '../util/semaphore';
 import type { Session } from './types';
+import type { Rect } from '../watermark/types';
 
 export interface CreateSessionInput {
   video: VideoMeta;
@@ -50,13 +53,38 @@ export class SessionManager {
       const height = probe.height ?? video.height;
       const durationSec = probe.durationSec || video.durationSec || 0;
 
-      // Generate the per-user watermark: "<email> | <category>", scheduled to move
-      // to a random border every 3–12s (vertical on the left/right edges), then burn
-      // it in via the ASS file. Source is only read, never written.
+      // Burn in (a) the optional static logo and (b) the per-user moving text
+      // "<email> | <category>" which jumps to a random border every 3–12s (vertical
+      // on the left/right edges) and is steered clear of the logo. Source is only read.
       let assPath: string | null = null;
+      let logo: LogoOverlay | null = null;
       if (width && height && durationSec > 0) {
+        let exclusion: Rect | null = null;
+        const pos = config.logo.position;
+        if (pos !== 'disabled') {
+          try {
+            if (!existsSync(config.logo.file)) throw new Error(`logo file not found: ${config.logo.file}`);
+            const lp = await probeVideo(config.logo.file);
+            if (!lp.width || !lp.height) throw new Error('could not read logo dimensions');
+            const box = computeLogoBox(width, height, lp.width, lp.height, {
+              position: pos,
+              sizePct: config.logo.sizePct,
+              gapXPct: config.logo.gapXPct,
+              gapYPct: config.logo.gapYPct,
+            });
+            logo = { path: config.logo.file, sw: box.w, sh: box.h, x: box.x, y: box.y, opacity: config.logo.opacity };
+            exclusion = box;
+            logger.info({ id, position: pos, box }, 'logo overlay enabled');
+          } catch (err) {
+            logger.warn(
+              { id, file: config.logo.file, err: err instanceof Error ? err.message : String(err) },
+              'logo unavailable — streaming without it',
+            );
+          }
+        }
+
         const text = `${email} | ${video.category}`;
-        const plan = generateSchedule({ durationSec, width, height, text, config: config.watermark });
+        const plan = generateSchedule({ durationSec, width, height, text, config: config.watermark, exclusion });
         assPath = path.join(dir, ASS_NAME);
         await writeFile(assPath, renderAss(plan, text), 'utf8');
         logger.info(
@@ -76,6 +104,7 @@ export class SessionManager {
         audioCodec: probe.audioCodec,
         assPath,
         fontsDir: config.fontsDir,
+        logo,
       });
 
       runner = new HlsRunner({ cwd: dir, args, label: `${video.id}:${id.slice(0, 8)}` });

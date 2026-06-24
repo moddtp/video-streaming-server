@@ -1,5 +1,6 @@
 // Pure helpers for watermark sizing, color/opacity, RNG and ASS formatting.
 // Kept side-effect free so they are easy to unit test.
+import type { Rect } from './types';
 
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
@@ -79,4 +80,97 @@ export function formatAssTime(sec: number): string {
  */
 export function sanitizeAssText(text: string): string {
   return text.replace(/\{/g, '(').replace(/\}/g, ')').replace(/\\/g, '/').replace(/\r?\n/g, ' ');
+}
+
+/** Do the closed integer-ish ranges [a0,a1] and [b0,b1] overlap? */
+export function rangesOverlap(a0: number, a1: number, b0: number, b1: number): boolean {
+  return a0 <= b1 && b0 <= a1;
+}
+
+/**
+ * Random integer in [lo,hi], avoiding an excluded band `[ex0,ex1]` (e.g. the
+ * logo's projection). When `band` is null this is EXACTLY `randIntInRange` —
+ * same rng consumption — so a schedule with no logo is byte-identical to before.
+ * When set, it draws from the larger remaining sub-range (tie → lower); if the
+ * band covers everything it returns the fallback (no rng draw, matching the
+ * empty-range path of randIntInRange).
+ */
+export function pickAlong(
+  rng: () => number,
+  lo: number,
+  hi: number,
+  fallback: number,
+  band: [number, number] | null,
+): number {
+  if (!band) return randIntInRange(rng, lo, hi, fallback);
+  const l = Math.ceil(lo);
+  const h = Math.floor(hi);
+  if (l > h) return Math.round(fallback);
+  const aLo = l;
+  const aHi = Math.min(h, Math.floor(band[0]) - 1);
+  const bLo = Math.max(l, Math.ceil(band[1]) + 1);
+  const bHi = h;
+  const aLen = Math.max(0, aHi - aLo + 1);
+  const bLen = Math.max(0, bHi - bLo + 1);
+  if (aLen === 0 && bLen === 0) return Math.round(fallback);
+  const useA = aLen >= bLen ? aLen > 0 : bLen === 0;
+  const [sLo, sHi] = useA ? [aLo, aHi] : [bLo, bHi];
+  return sLo + Math.floor(rng() * (sHi - sLo + 1));
+}
+
+/**
+ * Place a logo of intrinsic size (lw×lh) into a corner of a W×H video. Scales it
+ * preserving aspect so its larger side = clamp(sizePct,0,1/8)·min(W,H) (honoring
+ * "≤ 1/8 of the constraining dimension"), then offsets it from the two nearest
+ * borders by gapXPct·W / gapYPct·H. Returns the on-screen pixel rect.
+ */
+export function computeLogoBox(
+  W: number,
+  H: number,
+  lw: number,
+  lh: number,
+  opts: {
+    position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    sizePct: number;
+    gapXPct: number;
+    gapYPct: number;
+  },
+): Rect {
+  const constrainDim = Math.min(W, H);
+  const targetMax = clamp(opts.sizePct, 0, 0.125) * constrainDim;
+  let w: number;
+  let h: number;
+  if (lw >= lh) {
+    w = Math.round(targetMax);
+    h = Math.round((targetMax * lh) / lw);
+  } else {
+    h = Math.round(targetMax);
+    w = Math.round((targetMax * lw) / lh);
+  }
+  w = Math.max(1, w);
+  h = Math.max(1, h);
+  const gx = Math.round(opts.gapXPct * W);
+  const gy = Math.round(opts.gapYPct * H);
+  let x: number;
+  let y: number;
+  switch (opts.position) {
+    case 'top-left':
+      x = gx;
+      y = gy;
+      break;
+    case 'top-right':
+      x = W - w - gx;
+      y = gy;
+      break;
+    case 'bottom-left':
+      x = gx;
+      y = H - h - gy;
+      break;
+    case 'bottom-right':
+    default:
+      x = W - w - gx;
+      y = H - h - gy;
+      break;
+  }
+  return { x: Math.max(0, x), y: Math.max(0, y), w, h };
 }

@@ -29,8 +29,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _baseUrl = TextEditingController(text: kDefaultBaseUrl);
-  final _email = TextEditingController(text: 'phirapong@icbsolution.com');
-  final _password = TextEditingController(text: 'password123');
+  final _email = TextEditingController(text: 'vdowatermark@vdowatermark.th');
+  final _password = TextEditingController(text: 'vdowatermark9630');
   bool _busy = false;
   String? _error;
 
