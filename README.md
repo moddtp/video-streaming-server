@@ -28,6 +28,10 @@ screen-recording and re-streaming.
 - **Bundled FFmpeg** (`ffmpeg-static`) — no system install required; a startup
   self-check verifies the libass burn path and a repair script fixes truncated downloads.
 - **Concurrency cap** with `503` backpressure (per-user burn-in is CPU-heavy).
+- **Demo niceties** in the web player: plays the 3 local samples **and curated external
+  M3U8/HLS streams** (re-encoded with the watermark on the fly), a **copyable stream URL**
+  to open in VLC / MX Player / Kodi / QuickTime (they see the same burned-in watermark), and
+  an optional simulated 4-second pre-roll ad (default off).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design, the
 burned-in vs client-overlay tradeoff, and scaling notes.
@@ -90,6 +94,7 @@ map to a fraction of the frame):
 | `LOGO_FILE`                 | GitHub mark | PNG/JPEG logo to burn in                        |
 | `LOGO_SIZE_PCT` / `_GAP_X_PCT` / `_GAP_Y_PCT` / `_OPACITY` | `0.10`/`0.03`/`0.03`/`0.85` | Logo size (≤1/8), gaps, opacity |
 | `MAX_CONCURRENT_TRANSCODES` | cores    | Concurrent burn-in jobs before `503`               |
+| `EXTERNAL_MAX_SECONDS`      | `120`    | Cap for re-encoding live/long external streams     |
 | `CATALOG_STORE`             | `sqlite` | `sqlite` (DBMS table) or `json`                    |
 
 ## Project layout

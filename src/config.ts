@@ -61,6 +61,9 @@ const EnvSchema = z.object({
   X264_CRF: num(21),
   SESSION_IDLE_TIMEOUT_SEC: num(120),
   SWEEP_INTERVAL_SEC: num(30),
+  // External (URL) sources are transcoded with the watermark; cap live/long
+  // streams to this many seconds so the burn-in is finite.
+  EXTERNAL_MAX_SECONDS: num(120),
 
   WM_TEXT_HEIGHT_PCT: num(0.035),
   WM_GAP_PCT: num(0.04),
@@ -125,6 +128,7 @@ export const config = {
   x264Crf: env.X264_CRF,
   sessionIdleTimeoutSec: env.SESSION_IDLE_TIMEOUT_SEC,
   sweepIntervalSec: env.SWEEP_INTERVAL_SEC,
+  externalMaxSeconds: env.EXTERNAL_MAX_SECONDS,
 
   watermark: {
     textHeightPct: env.WM_TEXT_HEIGHT_PCT,

@@ -32,6 +32,10 @@ export interface HlsBuildOptions {
   fontsDir: string;
   /** Static logo overlay (pixel-resolved), or null for none. */
   logo: LogoOverlay | null;
+  /** True when inputPath is a remote URL (adds reconnect/read-timeout flags). */
+  remote: boolean;
+  /** Cap output duration (seconds) for live/long remote inputs; null = full length. */
+  durationCapSec: number | null;
 }
 
 /**
@@ -52,8 +56,17 @@ export function escapeFilterValue(v: string): string {
  * have to escape directory paths in the filtergraph (a classic footgun).
  */
 export function buildHlsArgs(opts: HlsBuildOptions): string[] {
-  const args = ['-hide_banner', '-loglevel', 'warning', '-nostdin', '-y', '-i', opts.inputPath];
+  const args = ['-hide_banner', '-loglevel', 'warning', '-nostdin', '-y'];
+  if (opts.remote) {
+    // Robustly fetch a remote HLS/M3U8 input (reconnect on drop, bounded read).
+    args.push('-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '2', '-rw_timeout', '15000000');
+  }
+  args.push('-i', opts.inputPath);
   if (opts.logo) args.push('-i', opts.logo.path);
+  if (opts.durationCapSec && opts.durationCapSec > 0) {
+    // Bound live/long external streams so the encode and watermark stay finite.
+    args.push('-t', String(opts.durationCapSec));
+  }
 
   // The moving text is burned via the libass `subtitles` filter (relative ASS
   // name; cwd = session dir). Only the absolute fontsdir needs escaping.

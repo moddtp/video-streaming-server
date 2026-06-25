@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { config } from '../config';
 import { logger } from '../logger';
 import { probeVideo } from '../ffmpeg/probe';
-import { createCatalogStore, resolveSourcePath, type VideoMeta } from './store';
+import { createCatalogStore, resolveSourcePath, isExternalSource, type VideoMeta } from './store';
 import { VIDEO_SEEDS } from './seed-data';
 
 /**
@@ -12,6 +12,7 @@ import { VIDEO_SEEDS } from './seed-data';
 async function seed() {
   const store = await createCatalogStore();
   let ok = 0;
+  let external = 0;
   let missing = 0;
 
   for (const s of VIDEO_SEEDS) {
@@ -26,7 +27,12 @@ async function seed() {
       height: null,
     };
 
-    if (!fs.existsSync(abs)) {
+    if (isExternalSource(s.sourceFile)) {
+      // Remote stream — probed at play time (and only reachable where the server
+      // has direct internet). Seed metadata as unknown.
+      logger.info({ id: s.id, category: s.category, url: s.sourceFile }, 'seeded (external; probed at play time)');
+      external++;
+    } else if (!fs.existsSync(abs)) {
       logger.warn({ id: s.id, file: abs }, 'source file missing — seeding metadata without probe (run `npm run make-media`)');
       missing++;
     } else {
@@ -44,7 +50,7 @@ async function seed() {
   }
 
   await store.close();
-  logger.info({ store: config.catalogStore, seeded: ok, missing }, 'catalog seed complete');
+  logger.info({ store: config.catalogStore, seeded: ok, external, missing }, 'catalog seed complete');
   if (missing > 0) {
     logger.warn('Some sources were missing. Generate them with `npm run make-media`, then re-run `npm run seed`.');
   }
