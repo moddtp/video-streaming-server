@@ -22,6 +22,8 @@ export interface PublicVideo {
   durationSec: number;
   width: number | null;
   height: number | null;
+  /** 'local' = a generated/uploaded MP4; 'external' = a remote M3U8/HLS URL. */
+  kind: 'local' | 'external';
 }
 
 export function toPublic(v: VideoMeta): PublicVideo {
@@ -32,11 +34,19 @@ export function toPublic(v: VideoMeta): PublicVideo {
     durationSec: v.durationSec,
     width: v.width,
     height: v.height,
+    kind: isExternalSource(v.sourcePath) ? 'external' : 'local',
   };
 }
 
-/** Resolve a catalog sourcePath to an absolute file path under MEDIA_DIR. */
+/** True when the source is a remote http(s) URL (e.g. an external M3U8/HLS stream). */
+export function isExternalSource(sourcePath: string): boolean {
+  return /^https?:\/\//i.test(sourcePath);
+}
+
+/** Resolve a catalog sourcePath to an absolute file path under MEDIA_DIR, or pass
+ * through a remote URL unchanged (ffmpeg ingests it directly). */
 export function resolveSourcePath(sourcePath: string): string {
+  if (isExternalSource(sourcePath)) return sourcePath;
   return path.isAbsolute(sourcePath) ? sourcePath : path.join(config.mediaDir, sourcePath);
 }
 

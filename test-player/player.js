@@ -5,6 +5,7 @@ const BASE = ''; // same origin as the server
 
 let accessToken = null;
 let hls = null;
+let adEndHandler = null;
 
 function setStatus(el, msg, isErr = false) {
   el.textContent = msg;
@@ -56,7 +57,18 @@ async function loadVideos() {
   const { videos } = await api('/api/videos', { headers: { Authorization: 'Bearer ' + accessToken } });
   const ul = $('videoList');
   ul.innerHTML = '';
+  const sel = $('externalSelect');
+  sel.innerHTML = '';
+  let externalCount = 0;
   for (const v of videos) {
+    if (v.kind === 'external') {
+      const opt = document.createElement('option');
+      opt.value = v.id;
+      opt.textContent = `${v.title} — ${v.category}`;
+      sel.appendChild(opt);
+      externalCount++;
+      continue;
+    }
     const li = document.createElement('li');
     li.innerHTML =
       `<span><strong>${v.title}</strong><br><span class="meta">${v.width}×${v.height} · ${Math.round(v.durationSec)}s</span></span>` +
@@ -67,21 +79,60 @@ async function loadVideos() {
     li.appendChild(btn);
     ul.appendChild(li);
   }
+  $('externalWrap').style.display = externalCount ? 'block' : 'none';
 }
 
 async function play(id) {
   setStatus($('playStatus'), 'Starting watermarked session…');
+  $('streamUrl').value = '';
   try {
     const r = await api(`/api/videos/${id}/play`, {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + accessToken },
     });
-    const url = `${r.playlistUrl}?t=${encodeURIComponent(r.sessionToken)}`;
-    setStatus($('playStatus'), `Playing — watermark: ${r.watermark.text}`);
-    startPlayback(url);
+    // Absolute, tokenized URL — copyable into VLC/MX/Kodi/QuickTime, which see the same burned-in watermark.
+    const url = `${location.origin}${r.playlistUrl}?t=${encodeURIComponent(r.sessionToken)}`;
+    $('streamUrl').value = url;
+    const wm = r.watermark.text;
+    if ($('adToggle').checked) {
+      playAdThenMain(url, wm);
+    } else {
+      setStatus($('playStatus'), `Playing — watermark: ${wm}`);
+      startPlayback(url);
+    }
   } catch (err) {
     setStatus($('playStatus'), err.message, true);
   }
+}
+
+function clearAd() {
+  if (adEndHandler) {
+    $('video').removeEventListener('ended', adEndHandler);
+    adEndHandler = null;
+  }
+}
+
+// Client-side simulated pre-roll: play the 4s ad MP4 natively, then the main HLS.
+// (Just sequencing two videos — NOT a watermark layer.)
+function playAdThenMain(mainUrl, wm) {
+  const video = $('video');
+  if (hls) {
+    hls.destroy();
+    hls = null;
+  }
+  clearAd();
+  setStatus($('playStatus'), 'Playing simulated 4-second ad…');
+  video.src = '/ad.mp4';
+  video.load();
+  adEndHandler = () => {
+    clearAd();
+    video.removeAttribute('src');
+    video.load();
+    setStatus($('playStatus'), `Playing — watermark: ${wm}`);
+    startPlayback(mainUrl);
+  };
+  video.addEventListener('ended', adEndHandler);
+  video.play().catch(() => {});
 }
 
 function startPlayback(url) {
@@ -138,4 +189,19 @@ function startPlayback(url) {
 }
 
 $('loginBtn').onclick = login;
+$('externalPlayBtn').onclick = () => {
+  const id = $('externalSelect').value;
+  if (id) play(id);
+};
+$('copyUrlBtn').onclick = async () => {
+  const url = $('streamUrl').value;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    setStatus($('playStatus'), 'URL copied to clipboard.');
+  } catch {
+    $('streamUrl').select();
+    document.execCommand('copy');
+  }
+};
 prefillDemo();

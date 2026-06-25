@@ -9,19 +9,18 @@ export interface ProbeResult {
   audioCodec: string | null;
 }
 
-/** Inspect a media file with ffprobe to get resolution, duration, and audio info. */
-export async function probeVideo(file: string): Promise<ProbeResult> {
+/** Inspect a media file (local path OR remote URL) with ffprobe to get
+ * resolution, duration, and audio info. For remote inputs, pass `{ remote: true }`
+ * to add a read timeout and bound the call. */
+export async function probeVideo(file: string, opts: { remote?: boolean } = {}): Promise<ProbeResult> {
   if (!ffprobePath) throw new Error('ffprobe binary not found (ffprobe-static missing).');
-  const { stdout, code, stderr } = await capture(ffprobePath, [
-    '-v',
-    'quiet',
-    '-print_format',
-    'json',
-    '-show_format',
-    '-show_streams',
-    file,
-  ]);
-  if (code !== 0) throw new Error(`ffprobe failed for "${file}": ${stderr.trim()}`);
+  const args = ['-v', 'quiet'];
+  if (opts.remote) args.push('-rw_timeout', '15000000'); // 15s read timeout for remote
+  args.push('-print_format', 'json', '-show_format', '-show_streams', file);
+  const { stdout, code, stderr } = await capture(ffprobePath, args, opts.remote ? { timeoutMs: 20000 } : {});
+  if (code !== 0) {
+    throw new Error(`ffprobe failed for "${file}": ${stderr.trim() || 'unreachable or timed out'}`);
+  }
 
   const data = JSON.parse(stdout) as {
     streams?: Array<{ codec_type?: string; width?: number; height?: number; duration?: string; codec_name?: string }>;

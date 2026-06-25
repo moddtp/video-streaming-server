@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { config } from '../config';
 import { logger } from '../logger';
-import { resolveSourcePath, type VideoMeta } from '../catalog/store';
+import { resolveSourcePath, isExternalSource, type VideoMeta } from '../catalog/store';
 import { probeVideo } from '../ffmpeg/probe';
 import { buildHlsArgs, ASS_NAME, type LogoOverlay } from '../ffmpeg/hls';
 import { HlsRunner } from '../ffmpeg/runner';
@@ -48,10 +48,18 @@ export class SessionManager {
       await mkdir(dir, { recursive: true });
 
       const inputPath = resolveSourcePath(video.sourcePath);
-      const probe = await probeVideo(inputPath);
-      const width = probe.width ?? video.width;
-      const height = probe.height ?? video.height;
-      const durationSec = probe.durationSec || video.durationSec || 0;
+      const remote = isExternalSource(video.sourcePath);
+      const probe = await probeVideo(inputPath, { remote });
+      // External streams may not report dimensions; fall back to 720p (libass scales the ASS).
+      const width = probe.width ?? video.width ?? (remote ? 1280 : null);
+      const height = probe.height ?? video.height ?? (remote ? 720 : null);
+      let durationSec = probe.durationSec || video.durationSec || 0;
+      let durationCapSec: number | null = null;
+      if (remote) {
+        // Cap live / unknown / very long external streams so the watermark schedule is finite.
+        if (durationSec <= 0 || durationSec > config.externalMaxSeconds) durationSec = config.externalMaxSeconds;
+        durationCapSec = durationSec;
+      }
 
       // Burn in (a) the optional static logo and (b) the per-user moving text
       // "<email> | <category>" which jumps to a random border every 3–12s (vertical
@@ -105,6 +113,8 @@ export class SessionManager {
         assPath,
         fontsDir: config.fontsDir,
         logo,
+        remote,
+        durationCapSec,
       });
 
       runner = new HlsRunner({ cwd: dir, args, label: `${video.id}:${id.slice(0, 8)}` });

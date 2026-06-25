@@ -43,6 +43,13 @@
       .err { color: #ef6d6d; }
       .hint { font-size: 12px; color: #6b7484; margin-top: 8px; }
       code { background: #0f1115; padding: 1px 5px; border-radius: 5px; }
+      select { width: 100%; padding: 9px 10px; border-radius: 7px; border: 1px solid #2c3340; background: #0f1115; color: #e6e6e6; font-size: 14px; }
+      .toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #b9c2d0; margin-bottom: 10px; }
+      .toggle input { width: auto; }
+      .urllabel { display: block; font-size: 12px; color: #8b94a3; margin: 12px 0 4px; }
+      .urlrow { display: flex; gap: 8px; }
+      .urlrow input { flex: 1; font-family: ui-monospace, monospace; font-size: 12px; }
+      .urlrow button { margin-top: 0; }
     </style>
   </head>
   <body>
@@ -65,15 +72,31 @@
         <div class="card" id="catalogCard" style="margin-top:16px; display:none">
           <h2>2 · Choose a video</h2>
           <ul class="videos" id="videoList"></ul>
+          <div id="externalWrap" style="display:none">
+            <h2 style="margin-top:18px">External M3U8 / HLS</h2>
+            <p class="hint" style="margin-top:0">
+              Re-encoded with the watermark on the fly. Free public streams — availability varies,
+              and they need the server to have direct internet.
+            </p>
+            <select id="externalSelect"></select>
+            <button id="externalPlayBtn">Play external</button>
+          </div>
         </div>
       </section>
       <section class="card">
         <h2>3 · Player</h2>
+        <label class="toggle"><input type="checkbox" id="adToggle" /> Play a simulated 4-second ad first (default off)</label>
         <video id="video" controls playsinline></video>
         <div class="status" id="playStatus"></div>
+        <label class="urllabel" for="streamUrl">Playing M3U8/HLS URL — copy into VLC, MPC, MX Player, Kodi, QuickTime, …:</label>
+        <div class="urlrow">
+          <input id="streamUrl" type="text" readonly placeholder="Press Play to get a copyable URL…" />
+          <button id="copyUrlBtn" class="secondary">Copy</button>
+        </div>
         <div class="hint">
           The player loads <code>playlistUrl?t=&lt;sessionToken&gt;</code>; the server rewrites each
-          segment URI to carry the same token, so segment requests stay authorized.
+          segment URI to carry the same token, so segment requests stay authorized. The watermark is
+          burned in by the server, so 3rd-party players opening this URL see it too.
         </div>
       </section>
     </main>

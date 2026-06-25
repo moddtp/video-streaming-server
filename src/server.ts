@@ -5,6 +5,7 @@ import { config } from './config';
 import { logger, loggerOptions } from './logger';
 import { assertFeatures } from './ffmpeg/binary';
 import { createCatalogStore } from './catalog/store';
+import { sendFile } from './util/http';
 import { SessionManager } from './session/manager';
 import { registerAuthRoutes } from './routes/auth.routes';
 import { registerCatalogRoutes } from './routes/catalog.routes';
@@ -39,6 +40,10 @@ export async function buildServer() {
   registerCatalogRoutes(app, catalog);
   registerSessionRoutes(app, catalog, sessions);
   registerStreamRoutes(app, sessions);
+
+  // The simulated pre-roll ad clip (played client-side before a video when enabled).
+  const adPath = path.join(config.root, 'assets', 'ad.mp4');
+  app.get('/ad.mp4', async (req, reply) => sendFile(req, reply, adPath, 'video/mp4'));
 
   // Serve the browser test player (and its assets) from the project's test-player/ dir.
   await app.register(fastifyStatic, {
