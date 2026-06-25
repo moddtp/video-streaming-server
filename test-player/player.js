@@ -91,7 +91,42 @@ function startPlayback(url) {
     hls = null;
   }
 
-  // Safari / iOS: native HLS.
+  // Prefer hls.js wherever MSE exists (Chrome / Firefox / Edge / desktop Safari):
+  // it's far more reliable for a server-generated EVENT playlist than native HLS,
+  // which some browsers advertise but play flakily. The stream is still being
+  // written, so the first manifest/fragment can briefly 404 or be short — retry
+  // generously and auto-recover instead of going black; log every event.
+  if (window.Hls && window.Hls.isSupported()) {
+    hls = new window.Hls({
+      enableWorker: true,
+      manifestLoadingMaxRetry: 8,
+      manifestLoadingRetryDelay: 500,
+      levelLoadingMaxRetry: 8,
+      levelLoadingRetryDelay: 500,
+      fragLoadingMaxRetry: 10,
+      fragLoadingRetryDelay: 500,
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    hls.on(window.Hls.Events.ERROR, (_e, data) => {
+      (data.fatal ? console.error : console.warn)('[hls]', data.type, data.details, 'fatal=' + data.fatal);
+      if (!data.fatal) return;
+      if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+        setStatus($('playStatus'), `Network hiccup (${data.details}) — retrying…`);
+        hls.startLoad();
+      } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+        setStatus($('playStatus'), `Media hiccup (${data.details}) — recovering…`);
+        hls.recoverMediaError();
+      } else {
+        setStatus($('playStatus'), `Playback error: ${data.details}`, true);
+        hls.destroy();
+      }
+    });
+    return;
+  }
+
+  // Native HLS fallback — iOS Safari (no MSE, so hls.js can't run).
   if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = url;
     video.addEventListener('error', () => setStatus($('playStatus'), 'Native HLS error — see console', true), { once: true });
@@ -99,40 +134,7 @@ function startPlayback(url) {
     return;
   }
 
-  if (!(window.Hls && window.Hls.isSupported())) {
-    setStatus($('playStatus'), 'HLS is not supported in this browser.', true);
-    return;
-  }
-
-  // The stream is an EVENT playlist still being written, so the first manifest or
-  // fragment can briefly 404 or be short. Retry generously and auto-recover rather
-  // than silently showing a black screen, and surface every hls.js event to the console.
-  hls = new window.Hls({
-    enableWorker: true,
-    manifestLoadingMaxRetry: 8,
-    manifestLoadingRetryDelay: 500,
-    levelLoadingMaxRetry: 8,
-    levelLoadingRetryDelay: 500,
-    fragLoadingMaxRetry: 10,
-    fragLoadingRetryDelay: 500,
-  });
-  hls.loadSource(url);
-  hls.attachMedia(video);
-  hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-  hls.on(window.Hls.Events.ERROR, (_e, data) => {
-    (data.fatal ? console.error : console.warn)('[hls]', data.type, data.details, 'fatal=' + data.fatal);
-    if (!data.fatal) return;
-    if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
-      setStatus($('playStatus'), `Network hiccup (${data.details}) — retrying…`);
-      hls.startLoad();
-    } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
-      setStatus($('playStatus'), `Media hiccup (${data.details}) — recovering…`);
-      hls.recoverMediaError();
-    } else {
-      setStatus($('playStatus'), `Playback error: ${data.details}`, true);
-      hls.destroy();
-    }
-  });
+  setStatus($('playStatus'), 'HLS is not supported in this browser.', true);
 }
 
 $('loginBtn').onclick = login;
