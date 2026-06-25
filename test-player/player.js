@@ -90,21 +90,49 @@ function startPlayback(url) {
     hls.destroy();
     hls = null;
   }
+
+  // Safari / iOS: native HLS.
   if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    // Safari / iOS: native HLS.
     video.src = url;
+    video.addEventListener('error', () => setStatus($('playStatus'), 'Native HLS error — see console', true), { once: true });
     video.play().catch(() => {});
-  } else if (window.Hls && window.Hls.isSupported()) {
-    hls = new window.Hls({ lowLatencyMode: false });
-    hls.loadSource(url);
-    hls.attachMedia(video);
-    hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
-    hls.on(window.Hls.Events.ERROR, (_e, data) => {
-      if (data.fatal) setStatus($('playStatus'), `Playback error: ${data.details}`, true);
-    });
-  } else {
-    setStatus($('playStatus'), 'HLS is not supported in this browser.', true);
+    return;
   }
+
+  if (!(window.Hls && window.Hls.isSupported())) {
+    setStatus($('playStatus'), 'HLS is not supported in this browser.', true);
+    return;
+  }
+
+  // The stream is an EVENT playlist still being written, so the first manifest or
+  // fragment can briefly 404 or be short. Retry generously and auto-recover rather
+  // than silently showing a black screen, and surface every hls.js event to the console.
+  hls = new window.Hls({
+    enableWorker: true,
+    manifestLoadingMaxRetry: 8,
+    manifestLoadingRetryDelay: 500,
+    levelLoadingMaxRetry: 8,
+    levelLoadingRetryDelay: 500,
+    fragLoadingMaxRetry: 10,
+    fragLoadingRetryDelay: 500,
+  });
+  hls.loadSource(url);
+  hls.attachMedia(video);
+  hls.on(window.Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+  hls.on(window.Hls.Events.ERROR, (_e, data) => {
+    (data.fatal ? console.error : console.warn)('[hls]', data.type, data.details, 'fatal=' + data.fatal);
+    if (!data.fatal) return;
+    if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+      setStatus($('playStatus'), `Network hiccup (${data.details}) — retrying…`);
+      hls.startLoad();
+    } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+      setStatus($('playStatus'), `Media hiccup (${data.details}) — recovering…`);
+      hls.recoverMediaError();
+    } else {
+      setStatus($('playStatus'), `Playback error: ${data.details}`, true);
+      hls.destroy();
+    }
+  });
 }
 
 $('loginBtn').onclick = login;
