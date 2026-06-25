@@ -31,11 +31,18 @@ export function registerStreamRoutes(app: FastifyInstance, sessions: SessionMana
 
       if (file.endsWith('.m3u8')) {
         const token = getSessionToken(req)!; // guaranteed by guard
-        let text: string;
-        try {
-          text = await readFile(filePath, 'utf8');
-        } catch {
-          return reply.code(404).send({ error: 'not_found' });
+        // Read the playlist; defensively retry a transient empty/partial read so a
+        // player never receives a half-written manifest (belt-and-suspenders to the
+        // atomic temp_file writes ffmpeg already does).
+        let text = '';
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            text = await readFile(filePath, 'utf8');
+          } catch {
+            return reply.code(404).send({ error: 'not_found' });
+          }
+          if (text.includes('#EXTM3U')) break;
+          await new Promise((r) => setTimeout(r, 40));
         }
         // Append the token to every segment URI line (e.g. "seg_00001.ts").
         const tokenized = text.replace(

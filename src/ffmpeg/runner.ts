@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { ffmpegPath } from './binary';
 import { PLAYLIST_NAME } from './hls';
@@ -115,13 +115,18 @@ export class HlsRunner {
     } catch {
       return false;
     }
-    // First segment URI line (non-comment). Confirm the file actually exists.
+    // First segment URI line (non-comment). Confirm the file exists AND has bytes
+    // (so playback never starts against a just-created, still-empty segment).
     const seg = text
       .split('\n')
       .map((l) => l.trim())
       .find((l) => l && !l.startsWith('#'));
     if (!seg) return false;
-    return existsSync(path.join(this.opts.cwd, seg));
+    try {
+      return statSync(path.join(this.opts.cwd, seg.split('?')[0])).size > 0;
+    } catch {
+      return false;
+    }
   }
 
   kill(): void {

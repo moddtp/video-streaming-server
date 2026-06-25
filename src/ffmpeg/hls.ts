@@ -106,7 +106,7 @@ export function buildHlsArgs(opts: HlsBuildOptions): string[] {
     '-hls_segment_type',
     'mpegts',
     '-hls_flags',
-    'independent_segments',
+    'independent_segments+temp_file',
     '-hls_segment_filename',
     SEGMENT_PATTERN,
     PLAYLIST_NAME,
