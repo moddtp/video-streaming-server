@@ -79,6 +79,7 @@ async function loadVideos() {
     li.appendChild(btn);
     ul.appendChild(li);
   }
+  if (externalCount) sel.selectedIndex = 0; // a listbox starts with nothing picked
   $('externalWrap').style.display = externalCount ? 'block' : 'none';
 }
 
@@ -150,6 +151,11 @@ function startPlayback(url) {
   if (window.Hls && window.Hls.isSupported()) {
     hls = new window.Hls({
       enableWorker: true,
+      // Always begin at the true start of the clip. Local streams are finalized
+      // (VOD) before we get here, but external/long streams are still a growing
+      // `event` playlist — without this, hls.js can adopt a live-edge start and
+      // then re-seek to 0, replaying the opening (the "double-play").
+      startPosition: 0,
       manifestLoadingMaxRetry: 8,
       manifestLoadingRetryDelay: 500,
       levelLoadingMaxRetry: 8,
@@ -190,6 +196,10 @@ function startPlayback(url) {
 
 $('loginBtn').onclick = login;
 $('externalPlayBtn').onclick = () => {
+  const id = $('externalSelect').value;
+  if (id) play(id);
+};
+$('externalSelect').ondblclick = () => {
   const id = $('externalSelect').value;
   if (id) play(id);
 };

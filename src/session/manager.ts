@@ -21,6 +21,26 @@ export interface CreateSessionInput {
   userId: string;
 }
 
+/**
+ * For a finite LOCAL source, finalizing the transcode before /play returns is
+ * cheap (the sample clips finish in seconds) and worth it: the player then loads
+ * a complete VOD playlist (one with #EXT-X-ENDLIST) instead of a still-growing
+ * `event` playlist, which hls.js treats as live and — with only the first 4 s
+ * segment present — plays once and then re-seeks to 0 (the "plays 4 s then
+ * restarts and plays the whole thing" double-play). Capped so a pathologically
+ * long local file can't make /play hang; past the cap we fall back to
+ * stream-while-transcoding. Remote/long sources never wait (they can be 2 min+).
+ */
+const LOCAL_FINALIZE_TIMEOUT_MS = 90_000;
+
+/** A timer-backed delay whose timer never keeps the event loop alive. */
+function delay(ms: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, ms);
+    t.unref?.();
+  });
+}
+
 /** Thrown when all transcode slots are busy; the route maps this to HTTP 503. */
 export class TranscodeBusyError extends Error {
   readonly busy = true;
@@ -142,8 +162,18 @@ export class SessionManager {
       void runner.done.finally(release);
 
       await runner.waitForReady();
+      // Local sources: wait for ffmpeg to finish writing the playlist (ENDLIST)
+      // so the player loads a finalized VOD playlist — see LOCAL_FINALIZE_TIMEOUT_MS.
+      // `runner.done` resolves on ffmpeg exit (success, error or kill); on a finite
+      // local input that means the full HLS output + #EXT-X-ENDLIST are on disk.
+      if (!remote) {
+        await Promise.race([runner.done, delay(LOCAL_FINALIZE_TIMEOUT_MS)]);
+      }
       session.status = 'ready';
-      logger.info({ id, videoId: video.id, userId, slotsInUse: this.transcodeSlots.inUse }, 'session ready');
+      logger.info(
+        { id, videoId: video.id, userId, finalized: !remote && !runner.running, slotsInUse: this.transcodeSlots.inUse },
+        'session ready',
+      );
       return session;
     } catch (err) {
       release();
